@@ -18,7 +18,11 @@ import urllib.request
 UA = "AegisExposureCheck/1.0 (+https://finch-ocxl.vercel.app)"
 EMAIL_RE = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
 # skip common junk / image-tracking / example addresses
-JUNK = ("example.com", "sentry", "wixpress", "@2x", ".png", ".jpg", "@sentry", "godaddy")
+JUNK = (
+    "example.com", "sentry", "wixpress", "@2x", ".png", ".jpg", "@sentry", "godaddy",
+    "@email.com", "@domain.com", "@yourdomain", "noreply", "no-reply", "@sentry.io",
+    "notification@email", "@2x.png", "yourname@", "name@email", "u003e",
+)
 
 
 def _fetch(url: str) -> str:

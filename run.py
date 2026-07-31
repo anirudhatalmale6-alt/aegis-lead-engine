@@ -4,6 +4,7 @@ Aegis lead engine -- command line.
   python3 run.py scan  <domain>                 # just show the exposure snapshot
   python3 run.py lead  <domain> [Business Name] # snapshot + public email + ready email
   python3 run.py batch <websites.txt>           # one domain per line -> leads.csv + emails/
+  python3 run.py find  "<Town>" [limit]         # AUTO-find agents in a town -> leads.csv + emails/
 
 Value-first: every generated email leads with the free findings, not a pitch.
 Nothing is sent here -- see send.py for low-volume sending from your own inbox.
@@ -20,6 +21,7 @@ import scanner
 import snapshot as snap_mod
 import outreach
 import leads as leads_mod
+import sources
 
 
 def cmd_scan(domain: str) -> None:
@@ -41,20 +43,19 @@ def cmd_lead(domain: str, name: str | None) -> None:
     print(mail["body"])
 
 
-def cmd_batch(path: str) -> None:
-    with open(path) as f:
-        domains = [ln.strip() for ln in f if ln.strip() and not ln.startswith("#")]
+def _process(leads: list[dict]) -> None:
+    """leads: [{'domain':..., 'name':..., 'email':...}] -> leads.csv + emails/."""
     os.makedirs("emails", exist_ok=True)
     rows = []
-    for i, entry in enumerate(domains, 1):
-        parts = entry.split(",", 1)
-        domain = parts[0].strip()
-        name = parts[1].strip() if len(parts) > 1 else None
-        sys.stderr.write(f"[{i}/{len(domains)}] scanning {domain} ...\n")
+    for i, ld in enumerate(leads, 1):
+        domain = ld["domain"]
+        name = ld.get("name") or None
+        sys.stderr.write(f"[{i}/{len(leads)}] scanning {domain} ...\n")
         try:
             raw = scanner.scan(domain)
             snap = snap_mod.build(raw)
-            email_addr = leads_mod.find_public_email(domain)
+            # use the email OSM/Places already gave us, else discover it from the site
+            email_addr = ld.get("email") or leads_mod.find_public_email(domain)
             mail = outreach.build_email(snap, name)
         except Exception as e:
             sys.stderr.write(f"    skipped ({e})\n")
@@ -79,6 +80,29 @@ def cmd_batch(path: str) -> None:
     sys.stderr.write(f"\nDone. {len(rows)} leads -> leads.csv, emails in emails/\n")
 
 
+def cmd_batch(path: str) -> None:
+    with open(path) as f:
+        entries = [ln.strip() for ln in f if ln.strip() and not ln.startswith("#")]
+    leads = []
+    for entry in entries:
+        parts = entry.split(",", 1)
+        leads.append({"domain": parts[0].strip(), "name": parts[1].strip() if len(parts) > 1 else None})
+    _process(leads)
+
+
+def cmd_find(place: str, limit: int) -> None:
+    sys.stderr.write(f"Finding estate/letting agents in {place} ...\n")
+    agents = sources.auto_find(place, limit)
+    if not agents:
+        sys.stderr.write(
+            "No agents with websites found there. Try a bigger nearby town, or add a "
+            "Google Places API key (GOOGLE_PLACES_KEY) for fuller coverage.\n"
+        )
+        return
+    sys.stderr.write(f"Found {len(agents)} agents with websites. Scanning...\n")
+    _process(agents)
+
+
 def main() -> None:
     if len(sys.argv) < 3:
         print(__doc__)
@@ -90,6 +114,8 @@ def main() -> None:
         cmd_lead(arg, sys.argv[3] if len(sys.argv) > 3 else None)
     elif cmd == "batch":
         cmd_batch(arg)
+    elif cmd == "find":
+        cmd_find(arg, int(sys.argv[3]) if len(sys.argv) > 3 else 60)
     else:
         print(__doc__)
         sys.exit(1)

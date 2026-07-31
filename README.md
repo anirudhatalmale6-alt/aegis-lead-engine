@@ -26,6 +26,28 @@ python3 run.py lead huntleys.net "Huntleys"
 
 # 3. A whole list at once -> leads.csv + one email per business in emails/
 python3 run.py batch websites.txt
+
+# 4. AUTO-FIND agents in a town (no list needed) -> leads.csv + emails/
+python3 run.py find "Brighton"
+python3 run.py find "Harrogate" 40    # cap at 40
+```
+
+## Auto-finding leads (no manual list)
+
+`find` sources the estate/letting agents for a town automatically, then scans
+them and writes the emails — one command, no list to build.
+
+By default it uses OpenStreetMap's public business data (free, no key). That's
+great for mid-size-and-up towns; coverage can be thin for very small places.
+
+Why not "just scan Google"? Google blocks automated scraping of its search
+results and it's against their terms, so it breaks and gets throttled fast. The
+proper way to use Google's data is its official Places API. If you want fuller
+coverage, add a key and it's used automatically:
+
+```bash
+export GOOGLE_PLACES_KEY="your-google-places-api-key"
+python3 run.py find "Loughborough"
 ```
 
 `websites.txt` is one business per line. You can add a name after a comma:
